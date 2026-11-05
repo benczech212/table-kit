@@ -1,0 +1,36 @@
+/* Shared by the Table Kit pages: the same graph-paper sheet as Hero Ledger. */
+:root {
+  --paper:#e9f0f8; --grid:rgba(47,109,181,.13); --card:#f8fbfe; --ink:#14283f; --soft:#4d6176; --line:#b4c7db; --accent:#b3261e; --accentink:#fff; --field:#fff; --blue:#23609f; --tint:#dfe9f4;
+  --ok:#1e6b2b; --okbg:#dcefdc; --bad:#a3211a; --badbg:#f9dcd8;
+  --display:"Grenze Gotisch","Palatino Linotype",Georgia,serif; --num:"Grenze",Georgia,serif; --body:"Alegreya Sans","Trebuchet MS",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper:#0c1826; --grid:rgba(126,170,222,.08); --card:#14243a; --ink:#dde8f4; --soft:#9db1c6; --line:#2e4763; --accent:#f07a70; --accentink:#2a0a07; --field:#0f1e30; --blue:#8ab9ec; --tint:#1c3048;
+  --ok:#8bd69a; --okbg:#173522; --bad:#ffa79f; --badbg:#42191a; color-scheme:dark } }
+:root[data-theme="dark"] {
+  --paper:#0c1826; --grid:rgba(126,170,222,.08); --card:#14243a; --ink:#dde8f4; --soft:#9db1c6; --line:#2e4763; --accent:#f07a70; --accentink:#2a0a07; --field:#0f1e30; --blue:#8ab9ec; --tint:#1c3048;
+  --ok:#8bd69a; --okbg:#173522; --bad:#ffa79f; --badbg:#42191a; color-scheme:dark }
+* { box-sizing:border-box }
+html { -webkit-text-size-adjust:100% }
+body { margin:0; background-color:var(--paper); background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px); background-size:22px 22px; color:var(--ink); font:16px/1.4 var(--body); font-variant-numeric:lining-nums }
+a { color:var(--blue) }
+h1 { font:700 clamp(2rem,5vw,3rem)/1 var(--display); margin:0; color:var(--accent) }
+h2 { font:700 1.5rem/1.1 var(--num); margin:0 0 8px }
+h3 { font:700 1.1rem/1.2 var(--num); margin:0 0 4px }
+.suite { display:flex; flex-wrap:wrap; gap:4px 16px; padding:8px 16px; font-weight:500; font-size:.95rem }
+.suite b { color:var(--accent) }
+button,.btn { font:500 .95rem var(--body); color:var(--ink); background:var(--card); border:1px solid var(--line); border-radius:3px; padding:6px 11px; cursor:pointer; min-height:34px; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:6px }
+button:hover,.btn:hover { border-color:var(--blue) }
+button.primary { background:var(--accent); color:var(--accentink); border-color:var(--accent); font-weight:700 }
+button[aria-pressed="true"] { background:var(--blue); color:var(--card); border-color:var(--blue) }
+button:disabled { opacity:.5; cursor:default }
+:focus-visible { outline:2px solid var(--blue); outline-offset:1px }
+select,input[type=text],input[type=number],input[type=search],input[type=date],textarea { width:100%; min-width:0; min-height:34px; font:1rem var(--body); color:var(--ink); background:var(--field); border:1px solid var(--line); border-radius:3px; padding:4px 7px }
+textarea { resize:vertical; line-height:1.4 }
+label.f { display:block; font-size:.82rem; color:var(--soft) }
+label.f > * { margin-top:2px; color:var(--ink) }
+.card { background:var(--card); border:1px solid var(--line); border-radius:3px; padding:12px }
+.bar { display:flex; flex-wrap:wrap; gap:6px; align-items:center }
+.muted { color:var(--soft) }
+.sr { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%) }
+footer { color:var(--soft); font-size:.85rem; padding:16px }

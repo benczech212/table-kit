@@ -1,0 +1,310 @@
+<title>Hero Ledger</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@500;700&family=Grenze:wght@500;700&family=Alegreya+Sans:wght@400;500;700&display=swap">
+<style>
+/* Layout: an adventurer's graph-paper map sheet. Ruled blue grid, build ledger on the left, live character sheet on the right, vital numbers pinned on top. */
+:root {
+  --paper:#e9f0f8; --grid:rgba(47,109,181,.13); --card:#f8fbfe; --ink:#14283f; --soft:#4d6176; --line:#b4c7db; --accent:#b3261e; --accentink:#fff; --field:#fff; --blue:#23609f; --tint:#dfe9f4;
+  --ok:#1e6b2b; --okbg:#dcefdc; --bad:#a3211a; --badbg:#f9dcd8; --pip:#23609f;
+  --display:"Grenze Gotisch","Palatino Linotype",Georgia,serif; --num:"Grenze",Georgia,serif; --body:"Alegreya Sans","Trebuchet MS",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper:#0c1826; --grid:rgba(126,170,222,.08); --card:#14243a; --ink:#dde8f4; --soft:#9db1c6; --line:#2e4763; --accent:#f07a70; --accentink:#2a0a07; --field:#0f1e30; --blue:#8ab9ec; --tint:#1c3048;
+  --ok:#8bd69a; --okbg:#173522; --bad:#ffa79f; --badbg:#42191a; --pip:#8ab9ec; color-scheme:dark } }
+:root[data-theme="dark"] {
+  --paper:#0c1826; --grid:rgba(126,170,222,.08); --card:#14243a; --ink:#dde8f4; --soft:#9db1c6; --line:#2e4763; --accent:#f07a70; --accentink:#2a0a07; --field:#0f1e30; --blue:#8ab9ec; --tint:#1c3048;
+  --ok:#8bd69a; --okbg:#173522; --bad:#ffa79f; --badbg:#42191a; --pip:#8ab9ec; color-scheme:dark }
+* { box-sizing:border-box }
+body { background-color:var(--paper); background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px); background-size:22px 22px; color:var(--ink); font:16px/1.4 var(--body); font-variant-numeric:lining-nums tabular-nums }
+body::before { content:""; position:fixed; inset:0 0 auto; height:env(safe-area-inset-top,0px); z-index:10; background:var(--card) }
+.wrap { max-width:1320px; margin:0 auto; padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px)); padding-block:20px 48px }
+header.top { display:flex; flex-wrap:wrap; align-items:end; gap:8px 24px; justify-content:space-between }
+h1 { font:700 clamp(2.4rem,6vw,3.6rem)/.95 var(--display); margin:0; color:var(--accent) }
+.tag { color:var(--soft); margin:4px 0 0; max-width:60ch }
+.bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center }
+button { font:500 .95rem var(--body); color:var(--ink); background:var(--card); border:1px solid var(--line); border-radius:3px; padding:6px 11px; cursor:pointer; min-height:34px }
+button:hover { border-color:var(--blue) }
+button.primary { background:var(--accent); color:var(--accentink); border-color:var(--accent); font-weight:700 }
+:focus-visible { outline:2px solid var(--blue); outline-offset:1px }
+.rules { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:8px; margin:16px 0 }
+.rules label { display:block; border:1px solid var(--line); background:var(--card); padding:9px 12px; cursor:pointer; border-radius:3px }
+.rules input { position:absolute; opacity:0 }
+.rules b { display:block; font:700 1.05rem var(--num) }
+.rules small { color:var(--soft) }
+.rules label:has(input:checked) { border:2px solid var(--accent); padding:8px 11px }
+.rules label:has(input:focus-visible) { outline:2px solid var(--blue) }
+.vitals { position:sticky; top:env(safe-area-inset-top,0px); z-index:9; background:var(--card); border:1px solid var(--line); display:grid; grid-template-columns:minmax(150px,1.6fr) repeat(7,minmax(58px,1fr)) minmax(100px,1.1fr); box-shadow:0 2px 0 var(--line) }
+.vitals > div { padding:5px 10px; border-left:1px solid var(--line); text-align:center; min-width:0 }
+.vitals > div:first-child { text-align:left; border-left:0 }
+.vitals b { display:block; font:700 1.55rem/1.1 var(--num) }
+.vitals span { font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; color:var(--soft) }
+.vitals .who { display:block; font:700 1.1rem/1.15 var(--num); letter-spacing:0; text-transform:none; color:var(--ink); overflow-wrap:anywhere }
+.vitals .sub { display:block; font-size:.8rem; line-height:1.2; letter-spacing:0; text-transform:none }
+.vitals .shield b { display:grid; place-items:center; width:42px; height:44px; margin:0 auto; background:var(--blue); color:var(--card); clip-path:polygon(50% 100%,8% 72%,0 12%,50% 0,100% 12%,92% 72%); font-size:1.3rem; padding-bottom:5px }
+.status { display:block; text-decoration:none; color:inherit }
+.status.good b { color:var(--ok) } .status.warn b { color:var(--bad) }
+.cols { display:grid; grid-template-columns:minmax(0,1.08fr) minmax(0,1fr); gap:18px; margin-top:18px; align-items:start }
+@media (max-width:1000px) { .cols { grid-template-columns:minmax(0,1fr) } .vitals { grid-template-columns:repeat(4,minmax(0,1fr)) } .vitals > div:first-child { grid-column:1/-1; border-bottom:1px solid var(--line) } .vitals > div { padding:3px 6px } .vitals > div:nth-child(6) { border-left:0 } .vitals > div:nth-child(n+6) { border-top:1px solid var(--line) } .vitals { position:static } }
+section.card { background:var(--card); border:1px solid var(--line); margin-bottom:14px; min-width:0 }
+.card > h2 { font:700 1.45rem/1 var(--display); margin:0; padding:9px 13px 7px; color:var(--accent); border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:12px; align-items:baseline; flex-wrap:wrap }
+.card > h2 small { font:400 .85rem var(--body); color:var(--soft) }
+.in { padding:11px 13px; display:grid; gap:10px; min-width:0 }
+.grid { display:grid; gap:9px 12px; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)) }
+label.f { display:grid; gap:2px; font-size:.82rem; color:var(--soft); min-width:0 }
+select,input[type=text],input[type=number] { width:100%; min-width:0; min-height:34px; font:1rem var(--body); color:var(--ink); background:var(--field); border:1px solid var(--line); border-radius:3px; padding:4px 7px }
+input[type=number] { text-align:center; padding:4px 2px }
+.tbl { overflow-x:auto }
+table { border-collapse:collapse; width:100%; font-size:.95rem }
+th { font-size:.74rem; letter-spacing:.05em; text-transform:uppercase; color:var(--soft); font-weight:500; text-align:left; padding:3px 5px; border-bottom:1px solid var(--line); white-space:nowrap }
+td { padding:3px 5px; border-bottom:1px solid var(--tint); vertical-align:middle }
+td.n,th.n { text-align:center } td.big { font:700 1.2rem var(--num); text-align:center }
+.pip { display:inline-block; width:10px; height:10px; transform:rotate(45deg); border:1.5px solid var(--pip); margin-right:6px; vertical-align:1px }
+.pip.on { background:var(--pip) } .pip.dbl { background:var(--accent); border-color:var(--accent) }
+.ab { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:6px }
+@media (max-width:560px){ .ab { grid-template-columns:repeat(3,minmax(0,1fr)) } }
+.ab > div { border:1px solid var(--line); text-align:center; padding:6px 2px 4px; min-width:0 }
+.ab small { display:block; font-size:.72rem; letter-spacing:.08em; color:var(--soft) }
+.ab b { display:block; font:700 1.75rem/1 var(--num) }
+.ab i { font-style:normal; display:block; color:var(--soft); font-size:.88rem }
+.ab .prof { color:var(--accent); font-weight:700 }
+.chk { list-style:none; margin:0; padding:0; display:grid; gap:3px }
+.chk li { padding:3px 8px; border-radius:2px; font-size:.92rem } .chk .no { background:var(--badbg); color:var(--bad); font-weight:500 } .chk .yes { background:var(--okbg); color:var(--ok) }
+details summary { cursor:pointer; color:var(--soft); font-size:.9rem; padding:3px 0 }
+.slots { display:flex; flex-wrap:wrap; gap:6px 16px } .slots > div { display:flex; gap:4px; align-items:center; font-size:.9rem }
+.slotpip { width:20px; height:20px; min-height:0; padding:0; border-radius:50%; border:2px solid var(--blue); background:var(--blue); cursor:pointer } .slotpip.used { background:transparent }
+.feat { columns:2 200px; margin:0; padding:0; list-style:none; font-size:.92rem } .feat li { break-inside:avoid; padding:1px 0 } .feat em { font-style:normal; color:var(--soft) }
+.two { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:3px 18px; font-size:.95rem } .two div { display:flex; justify-content:space-between; gap:8px; border-bottom:1px solid var(--tint) } .two b { font-family:var(--num); text-align:right }
+.note { font-size:.86rem; color:var(--soft); margin:0 }
+.msg { min-height:1.3em; font-size:.9rem; color:var(--soft) }
+footer { color:var(--soft); font-size:.8rem; max-width:90ch; margin-top:18px }
+footer a { color:var(--blue) }
+@media (prefers-reduced-motion: no-preference){ button,.slotpip { transition:background .12s, border-color .12s } }
+</style>
+<div class="wrap">
+<header class="top">
+  <div><h1>Hero Ledger</h1><p class="tag">A D&amp;D character builder. Pick a rulebook, make your choices, and every number on the sheet follows.</p></div>
+  <div class="bar" id="roster"></div>
+</header>
+<div class="msg" id="msg" role="status"></div>
+<div class="rules" id="rulebooks" role="radiogroup" aria-label="Rulebook"></div>
+<div class="vitals" id="vitals"></div>
+<div class="cols">
+  <div id="build"></div>
+  <div id="sheet"></div>
+</div>
+<footer>Unofficial fan tool, not affiliated with or endorsed by Wizards of the Coast. Includes material from the System Reference Document 5.2.1 and 5.1 by Wizards of the Coast LLC, available at <a href="https://www.dndbeyond.com/srd">dndbeyond.com/srd</a>, licensed under <a href="https://creativecommons.org/licenses/by/4.0/legalcode">CC BY 4.0</a>. Other option names and numbers are listed so you can record choices from books you own; no rules text is reproduced. Subclass features, invocations, spell text and magic items are not applied: use the adjustment fields.</footer>
+</div>
+<script>/*DATA*/</script>
+<script>/*ENGINE*/</script>
+<script>
+const D = window.HERO_DATA, { compute, lists, AB } = window.HeroEngine;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const sgn = (n) => (n >= 0 ? "+" : "") + n;
+const RS_NOTE = { "2024 Player's Handbook": "Current rules (5.5e)", "2024 PHB + Forge of the Artificer": "Current rules plus the Artificer", "2014 Player's Handbook": "Original 5e rules", "2014 PHB + Tasha's Cauldron": "5e plus Artificer and floating bonuses" };
+
+function blank() {
+  return { id: "c" + Date.now().toString(36), name: "New hero", player: "", alignment: "", xp: 0, ruleset: D.rulesets[0].id,
+    classes: [{ cls: "Fighter", sub: "", lvl: 1 }, { cls: "", sub: "", lvl: 0 }, { cls: "", sub: "", lvl: 0 }], hpMethod: "Average", hpRolled: 0,
+    method: "Standard Array", base: { STR: 15, DEX: 14, CON: 13, INT: 12, WIS: 10, CHA: 8 }, species: "Human", background: "Soldier", bonusMode: "+2 / +1", picks: ["STR", "CON", ""],
+    feats: Array.from({ length: 10 }, () => ({ name: "", a: "", b: "" })), fightingStyle: "None", skills: {}, skillBonus: {}, armor: "None", shield: false, mageArmor: false,
+    acBonus: 0, hpBonus: 0, initBonus: 0, speedBonus: 0, saveBonus: 0, targetAC: 15, raging: false,
+    attacks: Array.from({ length: 5 }, () => ({ weapon: "", ability: "Auto", prof: "Auto", magic: 0, dmg: 0, twoHanded: false })), usedSlots: {}, spells: [], gear: [], gp: 0, notes: "" };
+}
+function sample() {
+  const s = blank();
+  Object.assign(s, { id: "example", name: "Mira Thorne (example)", alignment: "Lawful Good", xp: 23000, species: "Tiefling (Infernal)", background: "Noble", picks: ["STR", "CHA", ""], base: { STR: 15, DEX: 10, CON: 13, INT: 8, WIS: 12, CHA: 14 }, fightingStyle: "Great Weapon Fighting", armor: "Chain Mail", gp: 25 });
+  s.classes[0] = { cls: "Paladin", sub: "Oath of Vengeance", lvl: 5 }; s.classes[1] = { cls: "Warlock", sub: "", lvl: 2 };
+  s.feats[0] = { name: "Great Weapon Master", a: "STR", b: "" }; s.skills = { Athletics: "P", Intimidation: "P" };
+  s.attacks[0].weapon = "Greatsword"; s.spells = [{ name: "Bless", level: 1, cls: "Paladin", prep: true }, { name: "Eldritch Blast", level: 0, cls: "Warlock", prep: true }]; s.gear = [{ name: "Greatsword", qty: 1, lb: 6, gp: 50 }];
+  return s;
+}
+function normalize(x) {
+  const b = blank(), s = { ...b, ...x };
+  ["classes", "feats", "attacks"].forEach((k) => { s[k] = b[k].map((d, i) => ({ ...d, ...((x[k] || [])[i] || {}) })); });
+  s.base = { ...b.base, ...x.base }; return s;
+}
+
+// Saving: private per person in the artifact's store when available, this browser otherwise.
+let db = null, uid = null, roster = [], st = null, dirty = false;
+const LS = "hero-ledger-roster";
+const lsGet = () => { try { return JSON.parse(localStorage.getItem(LS) || "[]"); } catch { return []; } };
+const lsPut = (a) => { try { localStorage.setItem(LS, JSON.stringify(a)); } catch {} };
+const say = (t) => { $("msg").textContent = t; };
+async function persist(c) {
+  const i = roster.findIndex((r) => r.id === c.id); if (i >= 0) roster[i] = c; else roster.push(c);
+  lsPut(roster);
+  if (db && uid) await db.collection("data/users/" + uid).doc(c.id).set(JSON.parse(JSON.stringify(c)));
+}
+async function removeChar(id) {
+  roster = roster.filter((r) => r.id !== id); lsPut(roster);
+  if (db && uid) await db.collection("data/users/" + uid).doc(id).delete();
+}
+let timer = null;
+function touch() { if (st.id === "example") st.id = "c" + Date.now().toString(36); dirty = true; clearTimeout(timer); timer = setTimeout(save, 1500); }
+async function save() {
+  if (!dirty) return; dirty = false;
+  try { await persist(JSON.parse(JSON.stringify(st))); say("Saved " + st.name + (db ? " to your account." : " in this browser.")); renderRoster(); }
+  catch (e) { say("Could not save to your account. Your hero is still saved in this browser."); }
+}
+
+// Form helpers. data-p is the state path; data-s marks a change that alters other options.
+const get = (p) => p.split(".").reduce((o, k) => o[k], st);
+function set(p, v) { const ks = p.split("."), l = ks.pop(); ks.reduce((o, k) => o[k], st)[l] = v; }
+const opt = (list, v, blankLabel) => {
+  const has = !v || list.includes(v);
+  return (blankLabel !== undefined ? `<option value="">${esc(blankLabel)}</option>` : "") + (has ? "" : `<option value="${esc(v)}" selected>${esc(v)} (not in this rulebook)</option>`) + list.map((o) => `<option value="${esc(o)}"${o === v ? " selected" : ""}>${esc(o)}</option>`).join("");
+};
+const sel = (p, list, blankLabel, s) => `<select id="${p}" data-p="${p}"${s ? " data-s=1" : ""}>${opt(list, get(p), blankLabel)}</select>`;
+const num = (p, a = "", b = "", s) => `<input type="number" id="${p}" data-p="${p}" data-n=1 value="${esc(get(p) || (get(p) === 0 ? 0 : ""))}"${a !== "" ? ` min="${a}"` : ""}${b !== "" ? ` max="${b}"` : ""}${s ? " data-s=1" : ""}>`;
+const txt = (p, ph) => `<input type="text" id="${p}" data-p="${p}" value="${esc(get(p))}"${ph ? ` placeholder="${esc(ph)}"` : ""}>`;
+const chk = (p, t, s) => `<label class="f" style="grid-auto-flow:column;justify-content:start;align-items:center;gap:6px;color:var(--ink);font-size:.95rem"><input type="checkbox" id="${p}" data-p="${p}" data-b=1${get(p) ? " checked" : ""}${s ? " data-s=1" : ""}> ${esc(t)}</label>`;
+const F = (l, c) => `<label class="f">${esc(l)}${c}</label>`;
+
+function renderRulebooks() {
+  $("rulebooks").innerHTML = D.rulesets.map((r, i) => `<label><input type="radio" name="rs" id="rs${i}" value="${esc(r.id)}"${r.id === st.ruleset ? " checked" : ""}><b>${esc(r.id)}</b><small>${esc(RS_NOTE[r.id])}</small></label>`).join("");
+}
+function renderRoster() {
+  const all = [{ id: "example", name: "Mira Thorne (example)" }, ...roster.filter((r) => r.id !== "example")];
+  $("roster").innerHTML = `<select id="pick" aria-label="Open a saved hero" style="width:auto;max-width:230px">${all.map((r) => `<option value="${esc(r.id)}"${r.id === st.id ? " selected" : ""}>${esc(r.name)}</option>`).join("")}</select>
+   <button id="new">New hero</button><button id="copy">Duplicate</button><button id="del"${st.id === "example" ? " hidden" : ""}>Delete</button>
+   <button id="exp">Export file</button><label><button id="imp" type="button">Import file</button><input id="impf" type="file" accept=".json" hidden></label>
+   <button class="primary" id="xlsx">Download Excel</button>`;
+}
+function renderBuild() {
+  const L = lists(st.ruleset, D), R = compute(st, D), era = L.rs.era;
+  const feats = Math.min(10, Math.max(3, st.feats.filter((f) => f.name).length + 1));
+  const pickAmt = (i) => era === 2024 ? (st.bonusMode === "+2 / +1" ? [2, 1, 0] : [1, 1, 1])[i] : R.species ? (L.rs.tasha ? R.species.tasha[i] : R.species.picks[i]) : 0;
+  const allowed = era === 2024 && R.bg ? R.bg.abilities : AB;
+  const feat = (n) => D.feats.find((x) => x.era === era && x.name === n);
+  $("build").innerHTML = `
+  <section class="card" id="identity"><h2>Who</h2><div class="in"><div class="grid">
+    ${F("Character name", txt("name"))}${F("Player", txt("player"))}${F("Alignment", txt("alignment"))}${F("Experience points", num("xp", 0))}</div></div></section>
+  <section class="card"><h2>Classes <small>First row is your starting class</small></h2><div class="in"><div class="tbl"><table><thead><tr><th>Class</th><th>Subclass</th><th class="n">Level</th></tr></thead><tbody>
+    ${st.classes.map((c, i) => `<tr><td>${sel(`classes.${i}.cls`, L.classes, "None", 1)}</td><td>${c.cls ? sel(`classes.${i}.sub`, L.subclasses(c.cls), "None yet", 1) : ""}</td><td style="width:74px">${c.cls ? num(`classes.${i}.lvl`, 1, 20, 1) : ""}</td></tr>`).join("")}
+    </tbody></table></div></div></section>
+  <section class="card"><h2>Ability scores</h2><div class="in">
+    <div class="grid">${F("Method", sel("method", ["Standard Array", "Point Buy", "Rolled"], undefined, 1))}<div class="f" style="align-self:end;font-size:.95rem" data-out="cost"></div></div>
+    <div class="ab">${AB.map((a) => `<div><small>${a}</small>${num("base." + a, 3, 18)}<i data-out="ab${a}"></i></div>`).join("")}</div>
+    ${era === 2024 ? `<div class="grid">${F("Background bonus", sel("bonusMode", ["+2 / +1", "+1 / +1 / +1"], undefined, 1))}</div>` : ""}
+    <div class="grid">${[0, 1, 2].map((i) => pickAmt(i) > 0 ? F(`+${pickAmt(i)} goes to`, sel(`picks.${i}`, allowed.includes(st.picks[i]) || !st.picks[i] ? allowed : allowed, "Choose")) : "").join("")}</div>
+    ${era === 2014 && !pickAmt(0) ? `<p class="note">Your species sets these bonuses.</p>` : ""}
+  </div></section>
+  <section class="card"><h2>Origin</h2><div class="in"><div class="grid">${F("Species", sel("species", L.species, "Choose", 1))}${F("Background", sel("background", L.backgrounds, "Choose", 1))}</div>
+    <p class="note">${R.bg ? `Grants ${esc(R.bg.skills.join(", "))}; ${esc(R.bg.tool)}${R.originFeat ? `; origin feat <b>${esc(R.originFeat)}</b>` : ""}.` : ""}${era === 2024 && R.bg ? ` Bonuses may go to ${esc(R.bg.abilities.join(", "))}.` : ""}</p></div></section>
+  <section class="card"><h2>Feats and ASIs <small data-out="feats"></small></h2><div class="in"><div class="tbl"><table><thead><tr><th>Feat</th><th>+1 to</th><th>2nd +1</th></tr></thead><tbody>
+    ${st.feats.slice(0, feats).map((f, i) => { const d = feat(f.name), o = d && d.opts ? d.opts.split(" ") : []; return `<tr><td>${sel(`feats.${i}.name`, L.feats, "None", 1)}</td><td style="width:92px">${d && d.points >= 1 ? sel(`feats.${i}.a`, o, "Pick") : ""}</td><td style="width:92px">${d && d.points >= 2 ? sel(`feats.${i}.b`, o, "Pick") : ""}</td></tr>`; }).join("")}
+    </tbody></table></div></div></section>
+  <section class="card"><h2>Skills <small data-out="skills"></small></h2><div class="in"><div class="tbl"><table><thead><tr><th>Skill</th><th>Your pick</th><th class="n">Bonus</th><th class="n">Total</th></tr></thead><tbody>
+    ${D.skills.map((k) => `<tr><td><span data-out="pip${k.name}"></span>${esc(k.name)} <small style="color:var(--soft)">${k.ability}${R.skillList[k.name] ? ", class" : ""}</small></td><td style="width:128px"><select id="sk-${esc(k.name)}" data-sk="${esc(k.name)}"><option value="">${R.skills[k.name].auto ? "Automatic" : "None"}</option><option value="P"${st.skills[k.name] === "P" ? " selected" : ""}>Proficient</option><option value="E"${st.skills[k.name] === "E" ? " selected" : ""}>Expertise</option></select></td><td style="width:62px"><input type="number" id="skb-${esc(k.name)}" data-skb="${esc(k.name)}" value="${esc((st.skillBonus || {})[k.name] || "")}"></td><td class="big" data-out="sk${k.name}"></td></tr>`).join("")}
+    </tbody></table></div></div></section>
+  <section class="card"><h2>Armor and adjustments</h2><div class="in"><div class="grid">
+    ${F("Armor", sel("armor", D.armor.map((a) => a.name), undefined))}${F("Fighting style", sel("fightingStyle", D.fightingStyles))}${F("Hit points", sel("hpMethod", ["Average", "Rolled"], undefined, 1))}${st.hpMethod === "Rolled" ? F("Rolled total after level 1", num("hpRolled", 0)) : ""}</div>
+    <div class="grid">${chk("shield", "Shield")}${chk("mageArmor", "Mage Armor active")}</div>
+    <div class="grid">${F("AC +/-", num("acBonus"))}${F("HP +/-", num("hpBonus"))}${F("Initiative +/-", num("initBonus"))}${F("Speed +/-", num("speedBonus"))}${F("All saves +/-", num("saveBonus"))}</div></div></section>
+  <section class="card"><h2>Attacks</h2><div class="in"><div class="grid">${F("Target AC for hit chance", num("targetAC", 1, 40))}${chk("raging", "Raging")}</div><div class="tbl"><table style="min-width:520px"><thead><tr><th>Weapon</th><th>Ability</th><th>Proficient</th><th class="n">Magic</th><th class="n">+Dmg</th><th class="n">Two hands</th></tr></thead><tbody>
+    ${st.attacks.map((a, i) => `<tr><td>${sel(`attacks.${i}.weapon`, D.weapons.map((w) => w.name), "None")}</td><td style="width:84px">${sel(`attacks.${i}.ability`, ["Auto", ...AB])}</td><td style="width:84px">${sel(`attacks.${i}.prof`, ["Auto", "Yes", "No"])}</td><td style="width:58px">${num(`attacks.${i}.magic`)}</td><td style="width:58px">${num(`attacks.${i}.dmg`)}</td><td class="n" style="width:60px"><input type="checkbox" aria-label="Two-handed grip" id="attacks.${i}.twoHanded" data-p="attacks.${i}.twoHanded" data-b=1${a.twoHanded ? " checked" : ""}></td></tr>`).join("")}
+    </tbody></table></div></div></section>
+  <section class="card"><h2>Spells known <small>Names you add; spell text is not included</small></h2><div class="in"><div class="tbl"><table style="min-width:440px"><thead><tr><th>Spell</th><th class="n">Level</th><th>Class</th><th class="n">Prepared</th><th></th></tr></thead><tbody>
+    ${st.spells.map((s, i) => `<tr><td>${txt(`spells.${i}.name`)}</td><td style="width:62px">${num(`spells.${i}.level`, 0, 9)}</td><td style="width:124px">${sel(`spells.${i}.cls`, st.classes.filter((c) => c.cls).map((c) => c.cls), "Any")}</td><td class="n" style="width:66px"><input type="checkbox" aria-label="Prepared" id="spells.${i}.prep" data-p="spells.${i}.prep" data-b=1${s.prep ? " checked" : ""}></td><td style="width:40px"><button data-rm="spells.${i}" aria-label="Remove spell">x</button></td></tr>`).join("")}
+    </tbody></table></div><div><button id="addspell">Add spell</button></div></div></section>
+  <section class="card"><h2>Gear <small data-out="gear"></small></h2><div class="in"><div class="tbl"><table style="min-width:440px"><thead><tr><th>Item</th><th class="n">Qty</th><th class="n">lb each</th><th class="n">gp each</th><th></th></tr></thead><tbody>
+    ${st.gear.map((g, i) => `<tr><td>${txt(`gear.${i}.name`)}</td><td style="width:62px">${num(`gear.${i}.qty`, 0)}</td><td style="width:68px">${num(`gear.${i}.lb`, 0)}</td><td style="width:68px">${num(`gear.${i}.gp`, 0)}</td><td style="width:40px"><button data-rm="gear.${i}" aria-label="Remove item">x</button></td></tr>`).join("")}
+    </tbody></table></div><div class="grid"><div><button id="addgear">Add item</button></div>${F("Gold pieces", num("gp", 0))}</div></div></section>`;
+}
+function paint() {
+  const R = compute(st, D), L = R.lists;
+  const fails = R.checks.filter((c) => !c.ok);
+  const classLine = st.classes.filter((c) => c.cls && +c.lvl).map((c) => `${c.cls}${c.sub ? " (" + c.sub + ")" : ""} ${c.lvl}`).join(" / ") || "No class yet";
+  const dc = R.casters.length ? Math.max(...R.casters.map((c) => c.dc)) : null;
+  $("vitals").innerHTML = `<div><span class="who">${esc(st.name)}</span><span class="sub">${esc(classLine)}</span></div>
+    <div><b>${R.level}</b><span>Level</span></div><div><b>${sgn(R.pb)}</b><span>Prof</span></div><div><b>${R.hp}</b><span>HP</span></div><div class="shield"><b>${R.ac}</b><span>AC</span></div><div><b>${sgn(R.init)}</b><span>Init</span></div><div><b>${R.speed}</b><span>Speed</span></div><div><b>${dc ?? "-"}</b><span>Spell DC</span></div>
+    <div><a class="status ${fails.length ? "warn" : "good"}" href="#checks"><b>${fails.length ? fails.length + " to fix" : "Legal"}</b><span>Rules</span></a></div>`;
+  const outs = { cost: st.method === "Point Buy" ? `Points spent: <b>${R.pointCost}</b> of 27` : st.method === "Standard Array" ? "Use 15, 14, 13, 12, 10, 8 once each" : "Enter your rolled totals", feats: `${R.featsUsed} of ${R.featSlots} used`, skills: `${R.skillsUsed} of ${R.skillsAllowed} chosen, expertise ${R.expertUsed} of ${R.expertAllowed}` };
+  AB.forEach((a) => { const x = R.ab[a]; outs["ab" + a] = `${x.score} (${sgn(x.mod)})`; });
+  D.skills.forEach((k) => { const s = R.skills[k.name]; outs["sk" + k.name] = sgn(s.total); outs["pip" + k.name] = `<i class="pip ${s.level === 2 ? "on dbl" : s.level ? "on" : ""}"></i>`; });
+  const gw = st.gear.reduce((t, g) => t + (+g.qty || 0) * (+g.lb || 0), 0) + (R.armor.lb || 0) + (st.shield ? 6 : 0);
+  outs.gear = `${gw} of ${R.carry} lb`;
+  document.querySelectorAll("[data-out]").forEach((el) => { if (outs[el.dataset.out] !== undefined) el.innerHTML = outs[el.dataset.out]; });
+  const pip = (lvl) => `<i class="pip ${lvl === 2 ? "on dbl" : lvl ? "on" : ""}"></i>`;
+  const slotCells = (key, n, label) => n ? `<div><span style="min-width:44px">${label}</span>${Array.from({ length: n }, (_, i) => { const u = (st.usedSlots[key] || 0) > i; return `<button class="slotpip${u ? " used" : ""}" data-slot="${key}" data-i="${i}" aria-label="${label} slot ${i + 1}${u ? " used" : " available"}"></button>`; }).join("")}</div>` : "";
+  const hasSlots = R.slots.some(Boolean) || R.pact.n;
+  $("sheet").innerHTML = `
+  <section class="card" id="checks"><h2>Rules check <small>${R.checks.length - fails.length} of ${R.checks.length} pass</small></h2><div class="in">
+    ${fails.length ? `<ul class="chk">${fails.map((c) => `<li class="no">${esc(c.text)}</li>`).join("")}</ul>` : `<p class="note" style="color:var(--ok)">This build is legal under ${esc(L.rs.id)}.</p>`}
+    <details><summary>All checks</summary><ul class="chk">${R.checks.map((c) => `<li class="${c.ok ? "yes" : "no"}">${esc(c.text)}</li>`).join("")}</ul></details></div></section>
+  <section class="card"><h2>Abilities and saves <small>Filled diamond marks a proficient save</small></h2><div class="in"><div class="ab">${AB.map((a) => { const x = R.ab[a], sv = R.saves[a]; return `<div><small>${a}</small><b>${sgn(x.mod)}</b><i>${x.score}</i><i class="${sv.prof ? "prof" : ""}">${sv.prof ? "&#9670; " : ""}save ${sgn(sv.total)}</i></div>`; }).join("")}</div></div></section>
+  <section class="card"><h2>Combat <small>${R.attacksPerAction} attack${R.attacksPerAction > 1 ? "s" : ""} per Attack action, vs AC ${esc(st.targetAC)}</small></h2><div class="in">${R.attacks.some(Boolean) ? `<div class="tbl"><table><thead><tr><th>Weapon</th><th class="n">Hit</th><th>Damage</th><th class="n">Chance</th><th class="n">Dmg/round</th>${R.era === 2024 ? "<th>Mastery</th>" : ""}</tr></thead><tbody>${R.attacks.filter(Boolean).map((a) => `<tr><td>${esc(a.weapon)}${a.proficient ? "" : ' <small style="color:var(--bad)">not proficient</small>'}</td><td class="big">${sgn(a.hit)}</td><td style="white-space:nowrap">${esc(a.die)}${a.flat >= 0 ? "+" : ""}${a.flat} ${a.type}</td><td class="n">${Math.round(a.chance * 100)}%</td><td class="n"><b>${a.perRound.toFixed(1)}</b></td>${R.era === 2024 ? `<td>${esc(a.mastery)}</td>` : ""}</tr>`).join("")}</tbody></table></div>` : '<p class="note">Add a weapon under Attacks to see hit chance and damage per round.</p>'}
+    <div class="two"><div>Hit dice<b>${esc(R.hitDice || "-")}</b></div><div>Passive Perception<b>${R.passive.Perception}</b></div><div>Passive Investigation<b>${R.passive.Investigation}</b></div><div>Passive Insight<b>${R.passive.Insight}</b></div><div>Darkvision<b>${R.dv ? R.dv + " ft" : "none"}</b></div><div>Size<b>${esc(R.size)}</b></div><div>Carry capacity<b>${R.carry} lb</b></div><div>Push, drag, lift<b>${R.push} lb</b></div><div>Long / high jump<b>${R.jumpLong} / ${R.jumpHigh} ft</b></div><div>Attunement slots<b>${R.attune}</b></div><div>Next level at<b>${R.nextXP ? R.nextXP.toLocaleString() + " XP" : "max"}</b></div></div>
+    ${R.stealthDis ? '<p class="note">This armor gives disadvantage on Stealth.</p>' : ""}${R.strShort ? '<p class="note" style="color:var(--bad)">Strength is too low for this armor: speed drops 10 ft.</p>' : ""}${R.resist ? `<p class="note">Resistances: ${esc(R.resist)}.</p>` : ""}${R.species ? `<p class="note">Traits: ${esc(R.species.traits)}.</p>` : ""}</div></section>
+  <section class="card"><h2>Spellcasting ${hasSlots ? "<small>Click a slot when you spend it</small>" : ""}</h2><div class="in">${R.casters.length ? `<div class="tbl"><table><thead><tr><th>Class</th><th class="n">Save DC</th><th class="n">Attack</th><th class="n">Ability</th><th class="n">Cantrips</th><th class="n">${R.era === 2024 ? "Prepared" : "Prepared or known"}</th></tr></thead><tbody>${R.casters.map((c) => `<tr><td>${esc(c.cls)}</td><td class="big">${c.dc}</td><td class="n">${sgn(c.attack)}</td><td class="n">${c.ability}</td><td class="n">${c.cantrips}</td><td class="n">${c.prepared}</td></tr>`).join("")}</tbody></table></div>` : '<p class="note">No spellcasting classes yet.</p>'}
+    ${hasSlots ? `<div class="slots">${R.slots.map((n, i) => slotCells("s" + (i + 1), n, "Level " + (i + 1))).join("")}${R.pact.n ? slotCells("pact", R.pact.n, "Pact L" + R.pact.level) : ""}</div><div><button id="rest">Long rest: restore all slots</button></div>` : ""}</div></section>
+  ${R.resources.length ? `<section class="card"><h2>Class resources</h2><div class="in"><div class="tbl"><table><thead><tr><th>Resource</th><th class="n">Value</th><th>Recovers</th></tr></thead><tbody>${R.resources.map((r) => `<tr><td>${esc(r.name)} <small style="color:var(--soft)">${esc(r.cls)}</small></td><td class="big">${esc(r.value)}</td><td>${r.rest === "-" ? "" : esc(r.rest)}</td></tr>`).join("")}</tbody></table></div></div></section>` : ""}
+  <section class="card"><h2>Features <small>${R.features.length} by class level</small></h2><div class="in"><ul class="feat">${R.features.map((f) => `<li><em>${esc(f.cls)} ${f.level}</em> ${esc(f.name)}</li>`).join("") || "<li>Add a class to see features.</li>"}</ul></div></section>`;
+}
+function renderAll() { renderRulebooks(); renderRoster(); renderBuild(); paint(); }
+function restoreFocus(id) { if (id) { const el = document.getElementById(id); if (el) el.focus(); } }
+function onField(el) {
+  if (el.name === "rs") { st.ruleset = el.value; renderAll(); touch(); return; }
+  if (el.dataset.sk) { const v = el.value; if (v) st.skills[el.dataset.sk] = v; else delete st.skills[el.dataset.sk]; paint(); touch(); return; }
+  if (el.dataset.skb) { st.skillBonus = st.skillBonus || {}; st.skillBonus[el.dataset.skb] = +el.value || 0; paint(); touch(); return; }
+  if (!el.dataset.p) return;
+  const v = el.dataset.b ? el.checked : el.dataset.n ? (el.value === "" ? 0 : +el.value) : el.value;
+  set(el.dataset.p, v);
+  const m = el.dataset.p.match(/^classes\.(\d)\.cls$/);
+  if (m) { const c = st.classes[+m[1]]; c.sub = ""; if (c.cls && !c.lvl) c.lvl = 1; }
+  if (el.dataset.s) { const id = el.id; renderBuild(); restoreFocus(id); }
+  paint(); touch();
+}
+document.addEventListener("input", (e) => { if (e.target.matches("input[type=text],input[type=number]")) onField(e.target); });
+document.addEventListener("change", (e) => { if (e.target.id === "pick") return openChar(e.target.value); if (e.target.id === "impf") return importFile(e.target.files[0]); if (e.target.matches("select,input[type=checkbox],input[type=radio]")) onField(e.target); });
+let confirmDel = false;
+document.addEventListener("click", async (e) => {
+  const t = e.target.closest("button"); if (!t) return;
+  if (t.dataset.slot) { const k = t.dataset.slot, i = +t.dataset.i, u = st.usedSlots[k] || 0; st.usedSlots[k] = u > i ? i : i + 1; paint(); touch(); return; }
+  if (t.dataset.rm) { const [k, i] = t.dataset.rm.split("."); st[k].splice(+i, 1); renderBuild(); paint(); touch(); return; }
+  if (t.id === "addspell") { st.spells.push({ name: "", level: 1, cls: "", prep: false }); renderBuild(); paint(); restoreFocus(`spells.${st.spells.length - 1}.name`); return; }
+  if (t.id === "addgear") { st.gear.push({ name: "", qty: 1, lb: 0, gp: 0 }); renderBuild(); paint(); restoreFocus(`gear.${st.gear.length - 1}.name`); return; }
+  if (t.id === "rest") { st.usedSlots = {}; paint(); touch(); return; }
+  if (t.id === "new") { st = blank(); dirty = true; await save(); renderAll(); say("New hero started."); return; }
+  if (t.id === "copy") { st = normalize({ ...JSON.parse(JSON.stringify(st)), id: "c" + Date.now().toString(36), name: st.name.replace(" (example)", "") + " copy" }); dirty = true; await save(); renderAll(); return; }
+  if (t.id === "del") { if (!confirmDel) { confirmDel = true; t.textContent = "Confirm delete"; return; } confirmDel = false; await removeChar(st.id); st = roster[0] ? normalize(roster[0]) : sample(); renderAll(); say("Hero deleted."); return; }
+  if (t.id === "imp") { $("impf").click(); return; }
+  if (t.id === "exp") return exportFile();
+  if (t.id === "xlsx") return downloadXlsx();
+});
+function openChar(id) { const c = id === "example" ? sample() : roster.find((r) => r.id === id); if (c) { st = normalize(c); dirty = false; confirmDel = false; renderAll(); } }
+async function importFile(f) {
+  if (!f) return;
+  try { const x = JSON.parse(await f.text()); if (!x.classes || !x.base) throw 0; st = normalize({ ...x, id: "c" + Date.now().toString(36) }); dirty = true; await save(); renderAll(); say("Imported " + st.name + "."); }
+  catch { say("That file is not a Hero Ledger export. Choose a .json file exported from this page."); }
+}
+async function saveFile(filename, data, done) {
+  const dl = await window.claude?.use?.("downloads");
+  if (!dl) {
+    const url = URL.createObjectURL(data instanceof Blob ? data : new Blob([data], { type: "application/json" })), a = document.createElement("a");
+    a.href = url; a.download = filename; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); say(done); return;
+  }
+  try { await dl.save({ filename, data }); say(done); } catch (e) { if (e && e.code !== "declined") say("The download did not start. Try again in a moment."); }
+}
+function exportFile() { return saveFile((st.name || "hero").replace(/[^\w -]+/g, "") + ".json", JSON.stringify(st, null, 1), "Exported " + st.name + "."); }
+function downloadXlsx() {
+  const b = atob(window.HERO_XLSX), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
+  return saveFile("Hero-Ledger.xlsx", new Blob([u]), "Excel workbook saved.");
+}
+async function boot() {
+  roster = lsGet(); st = roster[0] ? normalize(roster[0]) : sample(); renderAll();
+  try {
+    if (!window.claude?.use) return;
+    const [d, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]);
+    if (!d || !user) return;
+    const id = await user.id(); if (!id) return;
+    db = d; uid = id;
+    const snap = await db.collection("data/users/" + uid).get();
+    const saved = snap.docs.map((x) => x.data()).filter((x) => x && x.id);
+    if (saved.length) { const known = new Set(saved.map((x) => x.id)); roster = [...saved, ...roster.filter((r) => !known.has(r.id))]; lsPut(roster); if (!dirty) { st = st.id === "example" ? normalize(roster[0]) : normalize(roster.find((r) => r.id === st.id) || st); renderAll(); } }
+    say("Heroes you create are saved to your account and follow you between devices.");
+  } catch (e) { say("Heroes are saved in this browser for now."); db = null; }
+}
+boot();
+</script>

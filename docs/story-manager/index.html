@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Story Manager</title>
+<meta name="description" content="A linked campaign notebook for sessions, quests, NPCs, places, factions and secrets.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@500;700&family=Grenze:wght@500;700&family=Alegreya+Sans:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="../shared.css">
+<style>
+.top { display:flex; flex-wrap:wrap; gap:6px 12px; align-items:center; padding:8px 16px; background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5 }
+.top h1 { font-size:1.7rem }
+.top select { width:auto; max-width:230px }
+.top .grow { flex:1 }
+.top .suite { padding:0; font-size:.88rem }
+.tabs { display:flex; flex-wrap:wrap; gap:4px; padding:8px 16px 0; max-width:1320px; margin:0 auto }
+main { max-width:1320px; margin:0 auto; padding:12px 16px 40px }
+#msg { min-height:1.3em; color:var(--soft); font-size:.9rem; padding:0 16px; max-width:1320px; margin:6px auto 0 }
+.dash { display:grid; grid-template-columns:repeat(auto-fit,minmax(290px,1fr)); gap:12px; align-items:start }
+.lib { display:grid; grid-template-columns:minmax(230px,300px) minmax(0,1fr); gap:12px; align-items:start }
+.list { display:flex; flex-direction:column; gap:3px; max-height:calc(100vh - 250px); overflow:auto; margin-top:8px }
+.li { display:block; width:100%; text-align:left; justify-content:flex-start; padding:6px 9px; min-height:0 }
+.li small { display:block; color:var(--soft); font-size:.78rem }
+.li[aria-current="true"] { border:2px solid var(--accent); padding:5px 8px }
+.pill { display:inline-block; font-size:.72rem; letter-spacing:.04em; text-transform:uppercase; padding:0 6px; border-radius:2px; background:var(--tint); color:var(--soft); margin-right:4px }
+.pill.st-active,.pill.st-next { background:var(--okbg); color:var(--ok) }
+.pill.st-failed,.pill.st-dead { background:var(--badbg); color:var(--bad) }
+.grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:8px }
+.body { margin-top:6px }
+.render p { margin:0 0 8px; overflow-wrap:anywhere }
+.render ul { margin:0 0 8px; padding-left:20px }
+a.wl { font-weight:700; cursor:pointer }
+a.wl.missing { color:var(--bad); font-weight:500; text-decoration-style:dashed }
+.gm { border-left:4px solid var(--accent); padding:6px 10px; background:var(--tint); margin-top:8px }
+.checks label { display:flex; gap:6px; align-items:flex-start; padding:2px 0 }
+.checks input[type=text] { flex:1 }
+.board { display:grid; grid-template-columns:repeat(4,minmax(190px,1fr)); gap:10px; overflow-x:auto }
+.col { background:var(--card); border:1px solid var(--line); border-radius:3px; padding:8px; min-height:140px }
+.col h3 { display:flex; justify-content:space-between }
+.qcard { border:1px solid var(--line); border-radius:3px; background:var(--field); padding:6px 8px; margin-top:6px }
+.qcard .bar { margin-top:4px }
+.qcard button { min-height:28px; padding:2px 7px; font-size:.82rem }
+.tl { list-style:none; margin:0; padding:0 0 0 16px; border-left:3px solid var(--line) }
+.tl li { position:relative; padding:0 0 12px 8px }
+.tl li::before { content:""; position:absolute; left:-24px; top:6px; width:13px; height:13px; background:var(--accent); transform:rotate(45deg) }
+.web { width:100%; height:min(70vh,680px); display:block; background:var(--card); border:1px solid var(--line); border-radius:3px; touch-action:none }
+.web text { font:600 12px var(--body); fill:var(--ink); paint-order:stroke; stroke:var(--card); stroke-width:3px; pointer-events:none }
+.web line { stroke:var(--line); stroke-width:1.4 }
+.web circle { stroke:var(--card); stroke-width:2; cursor:pointer }
+.legend { display:flex; flex-wrap:wrap; gap:4px 12px; font-size:.85rem; margin:0 0 8px }
+.dot { display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:4px; vertical-align:-1px }
+body.pv .gmonly { display:none !important }
+@media (max-width:800px) { .lib { grid-template-columns:minmax(0,1fr) } .list { max-height:230px } .board { grid-template-columns:repeat(4,minmax(200px,1fr)) } }
+@media print { .top,.tabs,#msg,.noprint { display:none !important } body { background:#fff } }
+</style></head>
+<body>
+<header class="top">
+  <h1>Story Manager</h1>
+  <select id="pick" aria-label="Open a campaign"></select>
+  <button id="newc">New campaign</button>
+  <button id="renc">Rename</button>
+  <span class="grow"></span>
+  <label title="Hide GM notes and secret entries while screen-sharing"><input type="checkbox" id="pv"> Player view</label>
+  <button id="handout">Handout</button>
+  <button id="exp">Export</button>
+  <button id="imp">Import</button>
+  <button id="delc">Delete</button>
+  <input id="file" type="file" accept=".json,application/json" hidden>
+  <nav class="suite" aria-label="Table Kit"><a href="../">Table Kit</a><a href="../hero-ledger/">Hero Ledger</a><a href="../map-builder/">Map Builder</a><b>Story Manager</b></nav>
+</header>
+<nav class="tabs" id="tabs" aria-label="Views"></nav>
+<div id="msg" role="status"></div>
+<main id="main"></main>
+<script>
+"use strict";
+const LS = "tablekit-story", $ = (i) => document.getElementById(i);
+const lsGet = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+const say = (t) => { $("msg").textContent = t; };
+const uid = () => "e" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+// Builds DOM with textContent only, so nothing from an imported file can run as markup.
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === undefined || v === null || v === false) continue;
+    if (k.startsWith("on")) el[k] = v; else if (k === "class") el.className = v; else if (k === "value") el.value = v; else if (k === "checked") el.checked = !!v; else el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of kids.flat()) if (c !== null && c !== undefined && c !== false) el.append(c);
+  return el;
+}
+const TYPES = {
+  session: { n: "Session", p: "Sessions", color: "#b3261e", status: ["planned", "next", "played"], fields: [["num", "Number", "number"], ["date", "Real date", "date"], ["when", "In-world date (number of days)", "number"]], checks: "Prep checklist" },
+  quest: { n: "Quest", p: "Quests", color: "#b86f12", status: ["rumored", "active", "done", "failed"], fields: [["giver", "Given by", "link"], ["reward", "Reward", "text"]], checks: "Objectives" },
+  npc: { n: "NPC", p: "NPCs", color: "#23609f", status: ["alive", "dead", "missing", "unknown"], fields: [["role", "Role", "text"], ["place", "Usually found at", "link"], ["faction", "Faction", "link"], ["attitude", "Attitude to party", "select", ["ally", "friendly", "neutral", "wary", "hostile"]], ["voice", "Voice or quirk", "text"]] },
+  pc: { n: "Player character", p: "Party", color: "#1e6b2b", status: ["active", "away", "retired", "dead"], fields: [["player", "Played by", "text"], ["summary", "Class and level", "text"], ["goal", "Goal or bond", "text"]] },
+  place: { n: "Place", p: "Places", color: "#3f8f7a", status: [], fields: [["parent", "Inside", "link"], ["map", "Map", "map"]] },
+  faction: { n: "Faction", p: "Factions", color: "#7a3fa0", status: ["active", "fallen", "hidden"], fields: [["goal", "Goal", "text"], ["attitude", "Attitude to party", "select", ["ally", "friendly", "neutral", "wary", "hostile"]]] },
+  item: { n: "Item", p: "Items", color: "#8c6239", status: [], fields: [["holder", "Held by", "link"]] },
+  lore: { n: "Lore", p: "Lore", color: "#5d6b7a", status: [], fields: [] },
+  secret: { n: "Secret", p: "Secrets", color: "#222f3e", status: ["hidden", "hinted", "revealed"], fields: [["about", "About", "link"]], gm: true },
+  event: { n: "Event", p: "Events", color: "#a3365f", status: [], fields: [["when", "In-world date (number of days)", "number"]] },
+};
+const VIEWS = [["home", "Overview"], ["library", "Library"], ["quests", "Quest board"], ["timeline", "Timeline"], ["web", "Web"]];
+
+function entry(type, title, o = {}) { return { id: uid(), type, title, status: TYPES[type].status[0] || "", body: "", gm: "", tags: [], fields: {}, checks: [], updated: Date.now(), ...o }; }
+function example() {
+  const c = { id: uid(), name: "Example: The Salt Bell", calendarNote: "Day 1 is the morning the party reaches Wrenhold.", entries: [] }, add = (...a) => { const e = entry(...a); c.entries.push(e); return e; };
+  add("place", "Wrenhold", { body: "A salt-mining port built on stilts over grey tidal flats. Everyone keeps time by [[The Salt Bell]]." });
+  add("place", "The Salt Vaults", { fields: { parent: "Wrenhold" }, body: "Worked-out mine galleries under the harbor, sealed for a generation." });
+  add("place", "The Brine Chapel", { fields: { parent: "The Salt Vaults" }, body: "A drowned shrine at the deepest level. The bell's twin hangs here." });
+  add("npc", "Ostrava Venn", { fields: { role: "Harbormaster", place: "Wrenhold", faction: "The Tidewardens", attitude: "friendly", voice: "Counts things under their breath" }, body: "Hired the party. Fair, tired, and frightened of the tide tables.", gm: "Has been paying [[Maro the Ropewalker]] to keep the Vaults shut." });
+  add("npc", "Maro the Ropewalker", { fields: { role: "Smuggler", place: "The Salt Vaults", faction: "The Quiet Tally", attitude: "wary", voice: "Never stands on the floor if a beam will do" }, body: "Knows every gallery in [[The Salt Vaults]]. Will trade routes for favors." });
+  add("npc", "Sister Ilse Harrow", { status: "missing", fields: { role: "Bell-ringer", place: "Wrenhold" }, body: "Vanished the night [[The Salt Bell]] rang thirteen." });
+  add("faction", "The Tidewardens", { fields: { goal: "Keep the harbor open at any cost", attitude: "friendly" }, body: "Wrenhold's port authority. Led by [[Ostrava Venn]]." });
+  add("faction", "The Quiet Tally", { status: "hidden", fields: { goal: "Ring the twin bell and call in an old debt", attitude: "hostile" }, body: "Rumored guild of debt collectors. Nobody admits to owing them." });
+  add("item", "The Salt Bell", { fields: { holder: "Wrenhold" }, body: "Harbor bell cast from mine salt and iron. Never rings by itself." });
+  add("item", "Tide Ledger", { fields: { holder: "Maro the Ropewalker" }, body: "Water-stained record of what [[The Quiet Tally]] is owed." });
+  add("lore", "The Thirteenth Toll", { body: "Old miners say a thirteenth toll means the sea has come to collect." });
+  add("secret", "The town was sold", { status: "hidden", fields: { about: "Wrenhold" }, body: "The founders pledged Wrenhold itself to [[The Quiet Tally]] in exchange for the salt seam.", gm: "Reveal through the [[Tide Ledger]]." });
+  add("secret", "Ilse is alive", { status: "hinted", fields: { about: "Sister Ilse Harrow" }, body: "She is ringing the twin bell in [[The Brine Chapel]] to hold back the debt." });
+  add("quest", "Why did the bell ring thirteen?", { status: "active", fields: { giver: "Ostrava Venn", reward: "300 gp and harbor rights" }, body: "Find out what happened the night [[Sister Ilse Harrow]] vanished.", checks: [{ t: "Search the bell tower", d: true }, { t: "Find a way into the Vaults", d: false }, { t: "Reach the Brine Chapel", d: false }] });
+  add("quest", "Maro's favor", { status: "rumored", fields: { giver: "Maro the Ropewalker", reward: "A safe route through the Vaults" }, body: "Steal back the [[Tide Ledger]] copy held by the Tidewardens." });
+  add("pc", "Mira Thorne", { fields: { player: "Example", summary: "Paladin 5 / Warlock 2", goal: "Find who holds her patron's debt" } });
+  add("event", "The founders' pledge", { fields: { when: -21900 }, body: "[[Wrenhold]] is founded on a bargain." });
+  add("event", "The thirteenth toll", { fields: { when: -3 }, body: "[[The Salt Bell]] rings thirteen and [[Sister Ilse Harrow]] disappears." });
+  add("session", "Arrival at Wrenhold", { status: "played", fields: { num: 1, when: 1 }, body: "The party met [[Ostrava Venn]] and searched the bell tower.", gm: "Plant the wet footprints on the stairs." });
+  add("session", "Into the Vaults", { status: "next", fields: { num: 2, when: 3 }, body: "Strong start: the tide bell rings an hour early, and the harbor empties.", checks: [{ t: "Stat Maro", d: false }, { t: "Print the Salt Vaults map", d: true }, { t: "Pick two clues about the Ledger", d: false }] });
+  return c;
+}
+function validCampaign(c) {
+  if (!c || typeof c !== "object" || !Array.isArray(c.entries)) return null;
+  const str = (v, n) => String(v ?? "").slice(0, n);
+  return { id: typeof c.id === "string" ? c.id.slice(0, 40) : uid(), name: str(c.name, 100) || "Imported campaign", calendarNote: str(c.calendarNote, 300),
+    entries: c.entries.slice(0, 5000).filter((e) => e && TYPES[e.type] && e.title).map((e) => {
+      const fields = {}; if (e.fields && typeof e.fields === "object") for (const [k, , kind] of TYPES[e.type].fields) if (e.fields[k] !== undefined && e.fields[k] !== "") fields[k] = kind === "number" ? (isFinite(+e.fields[k]) ? +e.fields[k] : "") : str(e.fields[k], 300);
+      return { id: typeof e.id === "string" ? e.id.slice(0, 40) : uid(), type: e.type, title: str(e.title, 120), status: TYPES[e.type].status.includes(e.status) ? e.status : TYPES[e.type].status[0] || "", body: str(e.body, 50000), gm: str(e.gm, 50000), tags: Array.isArray(e.tags) ? e.tags.slice(0, 30).map((t) => str(t, 40)) : [], fields, checks: Array.isArray(e.checks) ? e.checks.slice(0, 200).map((k) => ({ t: str(k?.t, 300), d: !!k?.d })) : [], updated: +e.updated || Date.now() };
+    }) };
+}
+
+let store = lsGet(LS, []).map(validCampaign).filter(Boolean), camp = null, view = "home", openId = null, filter = "all", q = "", confirmDelC = false, editing = false, saveT = 0;
+const entries = () => camp.entries.filter((e) => !(playerView() && (TYPES[e.type].gm && e.status !== "revealed")));
+const playerView = () => $("pv").checked;
+const byTitle = (t) => camp.entries.find((e) => e.title.toLowerCase() === String(t).trim().toLowerCase());
+const save = () => { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(LS, JSON.stringify(store)); localStorage.setItem(LS + "-current", JSON.stringify(camp.id)); } catch { say("This browser's storage is full, so changes were not saved. Export your campaign."); } }, 200); };
+const linksIn = (e) => { const out = new Set(), rx = /\[\[([^\]\n]{1,120})\]\]/g; let m; for (const s of [e.body, playerView() ? "" : e.gm]) while ((m = rx.exec(s || ""))) out.add(m[1].trim().toLowerCase()); for (const [k, , kind] of TYPES[e.type].fields) if (kind === "link" && e.fields[k]) out.add(String(e.fields[k]).trim().toLowerCase()); return out; };
+const backlinks = (e) => entries().filter((x) => x !== e && linksIn(x).has(e.title.toLowerCase()));
+const go = (id, v = "library") => { openId = id; view = v; editing = false; render(); scrollTo(0, 0); };
+
+function rich(text, into) {
+  const inline = (s, el) => {
+    const rx = /\[\[([^\]\n]{1,120})\]\]|\*\*([^*\n]+)\*\*/g; let last = 0, m;
+    while ((m = rx.exec(s))) {
+      if (m.index > last) el.append(s.slice(last, m.index));
+      if (m[2]) el.append(h("b", null, m[2]));
+      else { const t = m[1].trim(), tgt = byTitle(t), hidden = tgt && playerView() && TYPES[tgt.type].gm && tgt.status !== "revealed";
+        if (hidden) el.append(t);
+        else if (tgt) el.append(h("a", { class: "wl", href: "#" + tgt.id, onclick: (e) => { e.preventDefault(); go(tgt.id); } }, tgt.title));
+        else el.append(h("a", { class: "wl missing", href: "#", title: "Not written yet. Click to create it.", onclick: (e) => { e.preventDefault(); const n = entry("lore", t); camp.entries.push(n); save(); editing = true; openId = n.id; view = "library"; render(); } }, t)); }
+      last = rx.lastIndex;
+    }
+    if (last < s.length) el.append(s.slice(last));
+  };
+  let ul = null;
+  String(text || "").split(/\n/).forEach((ln) => {
+    if (/^\s*[-*]\s+/.test(ln)) { if (!ul) { ul = h("ul"); into.append(ul); } const li = h("li"); inline(ln.replace(/^\s*[-*]\s+/, ""), li); ul.append(li); return; }
+    ul = null; if (ln.trim()) { const p = h("p"); inline(ln, p); into.append(p); }
+  });
+  return into;
+}
+const pill = (s) => s ? h("span", { class: "pill st-" + s }, s) : null;
+const dayLabel = (d) => (d === undefined || d === "" ? "" : d > 0 ? "Day " + d : d === 0 ? "Day 0" : `${-d} day${d === -1 ? "" : "s"} before day 0`);
+
+/* ---------- views ---------- */
+function renderHome() {
+  const all = entries(), next = all.filter((e) => e.type === "session" && e.status !== "played").sort((a, b) => (a.fields.num ?? 1e9) - (b.fields.num ?? 1e9))[0];
+  const last = all.filter((e) => e.type === "session" && e.status === "played").sort((a, b) => (b.fields.num ?? 0) - (a.fields.num ?? 0))[0];
+  const act = all.filter((e) => e.type === "quest" && e.status === "active"), sec = camp.entries.filter((e) => e.type === "secret" && e.status !== "revealed");
+  const list = (arr, sub) => arr.length ? h("div", { class: "list", style: "max-height:none" }, arr.map((e) => h("button", { class: "li", onclick: () => go(e.id) }, e.title, sub && h("small", null, sub(e))))) : h("p", { class: "muted" }, "Nothing yet.");
+  const empty = !camp.entries.length;
+  const blankCards = () => h("div", { class: "card" }, h("h2", null, "A blank campaign"), h("p", null, "Start with your next session, or a person or place the story turns on. Link entries by writing a title in double brackets, like [[Wrenhold]]."), h("div", { class: "bar" }, ["session", "npc", "place", "quest"].map((t) => h("button", { onclick: () => create(t) }, "Add " + TYPES[t].n.toLowerCase()))));
+  return h("div", { class: "dash" }, empty ? blankCards() : [
+    h("section", { class: "card" }, h("h2", null, "Next session"), next ? [h("h3", null, h("a", { class: "wl", href: "#", onclick: (e) => { e.preventDefault(); go(next.id); } }, next.title)), rich(next.body, h("div", { class: "render" })), checksView(next, true)] : h("div", null, h("p", { class: "muted" }, "No session planned."), h("button", { onclick: () => create("session") }, "Plan one"))),
+    last && h("section", { class: "card" }, h("h2", null, "Last time"), h("h3", null, last.title), rich(last.body, h("div", { class: "render" }))),
+    h("section", { class: "card" }, h("h2", null, "Active quests"), list(act, (e) => { const d = e.checks.filter((k) => k.d).length; return e.checks.length ? `${d} of ${e.checks.length} objectives` : ""; })),
+    !playerView() && h("section", { class: "card" }, h("h2", null, "Unrevealed secrets"), list(sec, (e) => e.status)),
+    h("section", { class: "card" }, h("h2", null, "Recently changed"), list([...all].sort((a, b) => b.updated - a.updated).slice(0, 6), (e) => TYPES[e.type].n)),
+    h("section", { class: "card" }, h("h2", null, "Party"), list(all.filter((e) => e.type === "pc"), (e) => e.fields.summary || ""), h("div", { class: "bar noprint", style: "margin-top:8px" }, h("button", { onclick: importHeroes }, "Add heroes from Hero Ledger"))),
+  ]);
+}
+function checksView(e, compact) {
+  if (!TYPES[e.type].checks) return null;
+  if (compact && !e.checks.length) return null;
+  const box = h("div", { class: "checks" }, h("h3", { style: compact ? "font-size:.95rem;color:var(--soft)" : "" }, TYPES[e.type].checks));
+  e.checks.forEach((k) => box.append(h("label", null, h("input", { type: "checkbox", checked: k.d, onchange: (ev) => { k.d = ev.target.checked; touch(e); render(); } }), k.t)));
+  return box;
+}
+function touch(e) { e.updated = Date.now(); save(); }
+function create(type) { const base = "New " + TYPES[type].n.toLowerCase(); let t = base, i = 2; while (byTitle(t)) t = `${base} ${i++}`; const e = entry(type, t); if (type === "session") e.fields.num = Math.max(0, ...camp.entries.filter((x) => x.type === "session").map((x) => +x.fields.num || 0)) + 1; camp.entries.push(e); save(); openId = e.id; view = "library"; editing = true; render(); setTimeout(() => { const i2 = $("e-title"); i2?.focus(); i2?.select(); }, 0); }
+function matches(e) { if (filter !== "all" && e.type !== filter) return false; if (!q) return true; const n = q.toLowerCase(); return [e.title, e.body, playerView() ? "" : e.gm, e.tags.join(" "), Object.values(e.fields).join(" ")].some((s) => String(s).toLowerCase().includes(n)); }
+function renderLibrary() {
+  const all = entries().filter(matches).sort((a, b) => a.title.localeCompare(b.title));
+  const si = h("input", { type: "search", id: "search", placeholder: "Search everything", "aria-label": "Search", value: q, oninput: (e) => { q = e.target.value; renderListOnly(); } });
+  const sf = h("select", { "aria-label": "Filter by type", onchange: (e) => { filter = e.target.value; renderListOnly(); } }, new Option("All types", "all"), Object.entries(TYPES).filter(([, t]) => !(t.gm && playerView())).map(([k, t]) => new Option(t.p, k))); sf.value = filter;
+  const addSel = h("select", { "aria-label": "Add an entry", class: "noprint", onchange: (e) => { if (e.target.value) create(e.target.value); } }, new Option("+ Add entry", ""), Object.entries(TYPES).map(([k, t]) => new Option(t.n, k)));
+  const list = h("div", { class: "list", id: "elist" }); fillList(list, all);
+  const open = entries().find((e) => e.id === openId);
+  return h("div", { class: "lib" }, h("aside", { class: "card" }, addSel, h("div", { style: "height:6px" }), si, h("div", { style: "height:6px" }), sf, list),
+    h("section", { class: "card", id: "detail" }, open ? (editing && !playerView() ? editor(open) : reader(open)) : h("p", { class: "muted" }, "Choose an entry to read it.")));
+}
+function fillList(list, arr) { list.innerHTML = ""; if (!arr.length) list.append(h("p", { class: "muted" }, "No entries match.")); arr.forEach((e) => list.append(h("button", { class: "li", "aria-current": e.id === openId ? "true" : null, onclick: () => go(e.id) }, e.title, h("small", null, TYPES[e.type].n + (e.status ? ", " + e.status : ""))))); }
+function renderListOnly() { fillList($("elist"), entries().filter(matches).sort((a, b) => a.title.localeCompare(b.title))); }
+function reader(e) {
+  const T = TYPES[e.type], fld = [];
+  for (const [k, label, kind] of T.fields) {
+    const v = e.fields[k]; if (v === undefined || v === "") continue; let val;
+    if (kind === "link") { val = h("span", { class: "render" }); rich(`[[${v}]]`, val); val = val.firstChild; val.style.margin = 0; val.style.display = "inline"; }
+    else if (kind === "map") { const m = mapsList().find((x) => x.id === v); val = m ? h("a", { href: "../map-builder/#" + encodeURIComponent(m.id) }, m.name) : "Map not found in this browser"; }
+    else if (k === "when") val = dayLabel(v); else val = String(v);
+    fld.push(h("div", null, h("small", { class: "muted", style: "display:block" }, label), val));
+  }
+  const back = backlinks(e), inside = entries().filter((x) => x.type === "place" && x.fields.parent && x.fields.parent.toLowerCase() === e.title.toLowerCase());
+  return h("article", null,
+    h("div", { class: "bar", style: "justify-content:space-between" }, h("h2", { style: "margin:0;color:var(--accent)" }, e.title), !playerView() && h("button", { class: "noprint", onclick: () => { editing = true; render(); } }, "Edit")),
+    h("p", { style: "margin:2px 0 8px" }, h("span", { class: "pill" }, T.n), pill(e.status), e.tags.map((t) => h("span", { class: "pill" }, "#" + t))),
+    fld.length && h("div", { class: "grid2", style: "margin-bottom:10px" }, fld),
+    rich(e.body, h("div", { class: "render body" })),
+    checksView(e, false),
+    !playerView() && e.gm && h("div", { class: "gm gmonly" }, h("h3", null, "GM notes"), rich(e.gm, h("div", { class: "render" }))),
+    inside.length ? h("div", { style: "margin-top:10px" }, h("h3", null, "Places inside"), inside.map((x, i) => [i ? ", " : "", h("a", { class: "wl", href: "#", onclick: (ev) => { ev.preventDefault(); go(x.id); } }, x.title)])) : null,
+    h("div", { style: "margin-top:10px" }, h("h3", null, "Linked from"), back.length ? back.map((x, i) => [i ? ", " : "", h("a", { class: "wl", href: "#", onclick: (ev) => { ev.preventDefault(); go(x.id); } }, x.title)]) : h("span", { class: "muted" }, "Nothing links here yet.")));
+}
+const mapsList = () => { const m = lsGet("tablekit-maps", []); return Array.isArray(m) ? m.filter((x) => x && typeof x.id === "string").map((x) => ({ id: x.id, name: String(x.name ?? "Map") })) : []; };
+function editor(e) {
+  const T = TYPES[e.type], titles = [...new Set(camp.entries.filter((x) => x !== e).map((x) => x.title))].sort();
+  const dlId = "titles-dl", update = (fn) => { fn(); touch(e); };
+  const fields = T.fields.map(([k, label, kind, opts]) => {
+    const cur = e.fields[k] ?? ""; let c;
+    const set = (v) => update(() => { if (v === "" || v === undefined) delete e.fields[k]; else e.fields[k] = v; });
+    if (kind === "select") { c = h("select", { onchange: (ev) => set(ev.target.value) }, new Option("", ""), opts.map((o) => new Option(o, o))); c.value = cur; }
+    else if (kind === "map") { const ms = mapsList(); c = h("select", { onchange: (ev) => set(ev.target.value) }, new Option(ms.length ? "No map" : "No maps in this browser yet", ""), ms.map((m) => new Option(m.name, m.id))); c.value = cur; }
+    else if (kind === "link") c = h("input", { type: "text", list: dlId, value: cur, onchange: (ev) => set(ev.target.value.trim().slice(0, 120)) });
+    else if (kind === "number") c = h("input", { type: "number", value: cur, onchange: (ev) => set(ev.target.value === "" ? "" : +ev.target.value) });
+    else if (kind === "date") c = h("input", { type: "date", value: cur, onchange: (ev) => set(ev.target.value) });
+    else c = h("input", { type: "text", value: cur, onchange: (ev) => set(ev.target.value.slice(0, 300)) });
+    return h("label", { class: "f" }, label, c);
+  });
+  const rename = (ev) => { const v = ev.target.value.trim().slice(0, 120); if (!v) { ev.target.value = e.title; return; } const other = byTitle(v); if (other && other !== e) { say(`Another entry is already called ${other.title}. Titles must be different so links work.`); ev.target.value = e.title; return; } const old = e.title; if (old === v) return; const rx = new RegExp("\\[\\[\\s*" + old.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*\\]\\]", "gi"); let n = 0;
+    camp.entries.forEach((x) => { for (const f of ["body", "gm"]) x[f] = x[f].replace(rx, () => { n++; return `[[${v}]]`; }); for (const [k, , kind] of TYPES[x.type].fields) if (kind === "link" && String(x.fields[k] ?? "").toLowerCase() === old.toLowerCase()) { x.fields[k] = v; n++; } }); e.title = v; touch(e); if (n) say(`Renamed and updated ${n} link${n === 1 ? "" : "s"}.`); };
+  const checks = T.checks ? h("div", { class: "checks", style: "margin-top:8px" }, h("h3", null, T.checks), e.checks.map((k, i) => h("label", null, h("input", { type: "checkbox", checked: k.d, onchange: (ev) => { k.d = ev.target.checked; touch(e); } }), h("input", { type: "text", value: k.t, "aria-label": "Item text", onchange: (ev) => { k.t = ev.target.value.slice(0, 300); touch(e); } }), h("button", { "aria-label": "Remove item", onclick: (ev) => { ev.preventDefault(); e.checks.splice(i, 1); touch(e); render(); } }, "x"))), h("button", { onclick: () => { e.checks.push({ t: "", d: false }); touch(e); render(); } }, "Add item")) : null;
+  let confirmDel = false;
+  return h("div", null,
+    h("datalist", { id: dlId }, titles.map((t) => h("option", { value: t }))),
+    h("div", { class: "bar", style: "justify-content:space-between;margin-bottom:8px" }, h("span", { class: "pill" }, T.n), h("div", { class: "bar" }, h("button", { class: "primary", onclick: () => { editing = false; render(); } }, "Done"), h("button", { onclick: (ev) => { if (!confirmDel) { confirmDel = true; ev.target.textContent = "Really delete?"; return; } camp.entries = camp.entries.filter((x) => x !== e); openId = null; editing = false; save(); render(); say("Deleted " + e.title + "."); } }, "Delete"))),
+    h("div", { class: "grid2" }, h("label", { class: "f", style: "grid-column:1/-1" }, "Title", h("input", { type: "text", id: "e-title", value: e.title, onchange: rename })),
+      T.status.length ? h("label", { class: "f" }, "Status", (() => { const s = h("select", { onchange: (ev) => update(() => { e.status = ev.target.value; }) }, T.status.map((o) => new Option(o, o))); s.value = e.status; return s; })()) : null,
+      fields, h("label", { class: "f" }, "Tags, separated by commas", h("input", { type: "text", value: e.tags.join(", "), onchange: (ev) => update(() => { e.tags = ev.target.value.split(",").map((t) => t.trim().slice(0, 40)).filter(Boolean).slice(0, 30); }) }))),
+    h("label", { class: "f", style: "margin-top:8px" }, T.gm ? "The secret" : "What players can know", h("textarea", { rows: 7, value: e.body, oninput: (ev) => { e.body = ev.target.value.slice(0, 50000); touch(e); } })),
+    h("p", { class: "muted", style: "font-size:.85rem;margin:2px 0 6px" }, "Link with [[Title]]. Use **bold** and - for lists."),
+    h("label", { class: "f" }, "GM notes (never shown in Player view or handouts)", h("textarea", { rows: 4, value: e.gm, oninput: (ev) => { e.gm = ev.target.value.slice(0, 50000); touch(e); } })),
+    checks);
+}
+function renderQuests() {
+  const cols = TYPES.quest.status, all = entries().filter((e) => e.type === "quest");
+  return h("div", null, h("div", { class: "bar noprint", style: "margin-bottom:8px" }, !playerView() && h("button", { onclick: () => create("quest") }, "Add quest")),
+    h("div", { class: "board" }, cols.map((st, ci) => { const list = all.filter((e) => e.status === st); return h("section", { class: "col" }, h("h3", null, st[0].toUpperCase() + st.slice(1), h("span", { class: "muted" }, String(list.length))), list.map((e) => { const d = e.checks.filter((k) => k.d).length; return h("div", { class: "qcard" }, h("a", { class: "wl", href: "#", onclick: (ev) => { ev.preventDefault(); go(e.id); } }, e.title), e.checks.length ? h("div", null, h("small", { class: "muted" }, `${d} of ${e.checks.length} objectives`)) : null, e.fields.reward ? h("div", null, h("small", { class: "muted" }, "Reward: " + e.fields.reward)) : null, !playerView() && h("div", { class: "bar noprint" }, ci > 0 && h("button", { "aria-label": "Move " + e.title + " to " + cols[ci - 1], onclick: () => { e.status = cols[ci - 1]; touch(e); render(); } }, "← " + cols[ci - 1]), ci < cols.length - 1 && h("button", { "aria-label": "Move " + e.title + " to " + cols[ci + 1], onclick: () => { e.status = cols[ci + 1]; touch(e); render(); } }, cols[ci + 1] + " →"))); })); })));
+}
+function renderTimeline() {
+  const dated = entries().filter((e) => e.fields.when !== undefined && e.fields.when !== "").sort((a, b) => a.fields.when - b.fields.when);
+  return h("div", { class: "card" }, h("h2", null, "Timeline"), camp.calendarNote ? h("p", { class: "muted" }, camp.calendarNote) : null,
+    !playerView() && h("label", { class: "f noprint", style: "max-width:520px;margin-bottom:12px" }, "Calendar note", h("input", { type: "text", value: camp.calendarNote || "", onchange: (e) => { camp.calendarNote = e.target.value.slice(0, 300); save(); } })),
+    dated.length ? h("ol", { class: "tl" }, dated.map((e) => h("li", null, h("small", { class: "muted" }, dayLabel(e.fields.when) + " · " + TYPES[e.type].n), h("div", null, h("a", { class: "wl", href: "#", onclick: (ev) => { ev.preventDefault(); go(e.id); } }, e.title)), rich(e.body.split("\n")[0], h("div", { class: "render" }))))) : h("p", { class: "muted" }, "Sessions and events with an in-world day appear here."),
+    !playerView() && h("button", { class: "noprint", onclick: () => create("event") }, "Add event"));
+}
+function renderWeb() {
+  const all = entries(), N = all.map((e, i) => ({ e, x: 400 + 260 * Math.cos(i * 2.4) * Math.sqrt((i + 1) / all.length), y: 300 + 220 * Math.sin(i * 2.4) * Math.sqrt((i + 1) / all.length), vx: 0, vy: 0 })), ix = new Map(all.map((e, i) => [e.title.toLowerCase(), i])), L = [];
+  N.forEach((n, i) => linksIn(n.e).forEach((t) => { const j = ix.get(t); if (j !== undefined && j !== i && !L.some((l) => (l[0] === j && l[1] === i) || (l[0] === i && l[1] === j))) L.push([i, j]); }));
+  // A fixed number of force steps on load, so the same notes give the same layout and nothing moves while you read.
+  for (let s = 0; s < 260; s++) { const k = 1 - s / 260;
+    for (let i = 0; i < N.length; i++) for (let j = i + 1; j < N.length; j++) { const a = N[i], b = N[j]; let dx = a.x - b.x, dy = a.y - b.y, d2 = dx * dx + dy * dy || 1; const f = 14000 / d2; a.vx += dx * f / Math.sqrt(d2); a.vy += dy * f / Math.sqrt(d2); b.vx -= dx * f / Math.sqrt(d2); b.vy -= dy * f / Math.sqrt(d2); }
+    L.forEach(([i, j]) => { const a = N[i], b = N[j], dx = b.x - a.x, dy = b.y - a.y, f = (Math.hypot(dx, dy) - 130) * .03; a.vx += dx / (Math.hypot(dx, dy) || 1) * f * 3; a.vy += dy / (Math.hypot(dx, dy) || 1) * f * 3; b.vx -= dx / (Math.hypot(dx, dy) || 1) * f * 3; b.vy -= dy / (Math.hypot(dx, dy) || 1) * f * 3; });
+    N.forEach((n) => { n.vx += (400 - n.x) * .008; n.vy += (300 - n.y) * .008; n.x += Math.max(-12, Math.min(12, n.vx)) * k; n.y += Math.max(-12, Math.min(12, n.vy)) * k; n.vx *= .55; n.vy *= .55; }); }
+  N.forEach((n) => { n.x = 400 + (n.x - 400) * 1.7; });
+  const xs = N.map((n) => n.x), ys = N.map((n) => n.y), pad = 70, minX = Math.min(800, ...xs) - pad, maxX = Math.max(0, ...xs) + pad, minY = Math.min(600, ...ys) - pad, maxY = Math.max(0, ...ys) + pad;
+  const NS = "http://www.w3.org/2000/svg", S = (t, a, ...k) => { const el = document.createElementNS(NS, t); for (const [x, v] of Object.entries(a)) el.setAttribute(x, v); el.append(...k); return el; };
+  const svg = S("svg", { class: "web", viewBox: `${minX} ${minY} ${maxX - minX} ${maxY - minY}`, role: "img", "aria-label": "Web of links between entries" });
+  L.forEach(([i, j]) => svg.append(S("line", { x1: N[i].x, y1: N[i].y, x2: N[j].x, y2: N[j].y })));
+  N.forEach((n) => { const deg = L.filter((l) => all[l[0]] === n.e || all[l[1]] === n.e).length, c = S("circle", { cx: n.x, cy: n.y, r: 7 + Math.min(9, deg * 1.4), fill: TYPES[n.e.type].color }); c.append(S("title", {}, n.e.title)); c.addEventListener("click", () => go(n.e.id)); svg.append(c, S("text", { x: n.x, y: n.y + 24 + Math.min(6, deg), "text-anchor": "middle" }, n.e.title)); });
+  return h("div", null, h("div", { class: "legend" }, Object.entries(TYPES).filter(([k, t]) => !(t.gm && playerView()) && all.some((e) => e.type === k)).map(([, t]) => h("span", null, h("span", { class: "dot", style: `background:${t.color}` }), t.p))), all.length ? svg : h("p", { class: "muted" }, "Add entries and link them to see the web."));
+}
+function render() {
+  document.body.classList.toggle("pv", playerView());
+  const p = $("pick"); p.innerHTML = ""; store.forEach((c) => p.append(new Option(c.name, c.id))); p.value = camp.id;
+  $("tabs").innerHTML = ""; VIEWS.forEach(([k, n]) => $("tabs").append(h("button", { "aria-pressed": String(view === k), onclick: () => { view = k; render(); } }, n)));
+  const m = $("main"); m.innerHTML = "";
+  m.append({ home: renderHome, library: renderLibrary, quests: renderQuests, timeline: renderTimeline, web: renderWeb }[view]());
+}
+function importHeroes() {
+  const roster = lsGet("hero-ledger-roster", []); if (!Array.isArray(roster) || !roster.length) { say("No saved heroes in this browser. Save one in Hero Ledger first."); return; }
+  let n = 0; roster.forEach((r) => { if (!r || !r.name || byTitle(r.name)) return; const cls = Array.isArray(r.classes) ? r.classes.filter((c) => c && c.cls).map((c) => `${c.cls} ${c.lvl ?? c.level ?? ""}`.trim()).join(" / ") : ""; camp.entries.push(entry("pc", String(r.name).slice(0, 120), { status: "active", fields: { summary: cls.slice(0, 300) } })); n++; });
+  save(); render(); say(n ? `Added ${n} hero${n === 1 ? "" : "es"} from Hero Ledger.` : "All your saved heroes are already in this campaign.");
+}
+function download(text, name, type) { const u = URL.createObjectURL(new Blob([text], { type })), a = document.createElement("a"); a.href = u; a.download = name; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 1000); }
+const safe = (n) => n.replace(/[^\w -]+/g, "").trim() || "campaign";
+function handoutText() { // Player-safe: no GM notes, no unrevealed secrets.
+  const out = [`# ${camp.name}`, ""];
+  for (const [k, T] of Object.entries(TYPES)) {
+    const list = camp.entries.filter((e) => e.type === k && !(T.gm && e.status !== "revealed")).sort((a, b) => (a.fields.num ?? 0) - (b.fields.num ?? 0) || a.title.localeCompare(b.title)); if (!list.length) continue;
+    out.push(`## ${T.p}`, "");
+    list.forEach((e) => { out.push(`### ${e.title}${e.status ? ` (${e.status})` : ""}`); const fl = T.fields.filter(([f, , kind]) => e.fields[f] !== undefined && e.fields[f] !== "" && kind !== "map").map(([f, label]) => `${label}: ${f === "when" ? dayLabel(e.fields[f]) : e.fields[f]}`); if (fl.length) out.push(fl.join("  \n")); if (e.body) out.push("", stripHidden(e.body)); if (e.type === "quest" && e.checks.length) out.push("", ...e.checks.map((c) => `- [${c.d ? "x" : " "}] ${c.t}`)); out.push(""); });
+  }
+  return out.join("\n");
+}
+function stripHidden(s) { return s.replace(/\[\[([^\]\n]{1,120})\]\]/g, "$1"); }
+function boot() {
+  if (!store.length) store.push(validCampaign(example()));
+  const cur = lsGet(LS + "-current", null); camp = store.find((c) => c.id === cur) || store[0];
+  $("pick").onchange = (e) => { camp = store.find((c) => c.id === e.target.value); openId = null; editing = false; save(); render(); };
+  $("newc").onclick = () => { const c = { id: uid(), name: "New campaign", calendarNote: "", entries: [] }; store.push(c); camp = c; view = "home"; openId = null; save(); render(); const n = prompt("Name this campaign", "New campaign"); if (n?.trim()) { c.name = n.trim().slice(0, 100); save(); render(); } };
+  $("renc").onclick = () => { const n = prompt("Rename this campaign", camp.name); if (n?.trim()) { camp.name = n.trim().slice(0, 100); save(); render(); } };
+  $("pv").onchange = () => { editing = false; if (openId && !entries().some((e) => e.id === openId)) openId = null; render(); say(playerView() ? "Player view is on: GM notes and unrevealed secrets are hidden. Turn it off to edit." : ""); };
+  $("exp").onclick = () => { download(JSON.stringify(camp, null, 1), safe(camp.name) + ".json", "application/json"); say("Exported the whole campaign, including GM notes and secrets. Use Handout for anything you give to players."); };
+  $("handout").onclick = () => { download(handoutText(), safe(camp.name) + " handout.md", "text/markdown"); say("Saved a handout without GM notes or unrevealed secrets. Secret entries that were revealed are included."); };
+  $("imp").onclick = () => $("file").click();
+  $("file").onchange = async (e) => { const f = e.target.files[0]; e.target.value = ""; if (!f) return; try { const c = validCampaign(JSON.parse(await f.text())); if (!c) throw 0; c.id = uid(); store.push(c); camp = c; openId = null; view = "home"; save(); render(); say("Imported " + c.name + "."); } catch { say("That file is not a Story Manager export."); } };
+  $("delc").onclick = () => { if (!confirmDelC) { confirmDelC = true; $("delc").textContent = "Really delete?"; setTimeout(() => { confirmDelC = false; $("delc").textContent = "Delete"; }, 4000); return; } confirmDelC = false; $("delc").textContent = "Delete"; const name = camp.name; store = store.filter((c) => c !== camp); if (!store.length) store.push({ id: uid(), name: "New campaign", calendarNote: "", entries: [] }); camp = store[0]; openId = null; view = "home"; save(); render(); say("Deleted " + name + "."); };
+  save(); render();
+}
+boot();
+</script>
+</body></html>
